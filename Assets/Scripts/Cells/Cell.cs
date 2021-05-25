@@ -23,6 +23,7 @@ public class Cell : MonoBehaviour
     [Space]
     [SerializeField] private SpriteRenderer cellCenter;
     [SerializeField] private SpriteRenderer selectionCircle;
+    [SerializeField] private SpriteRenderer selectionTarger;
     [SerializeField] private TextMeshPro pointsCountText;
     
 
@@ -39,6 +40,7 @@ public class Cell : MonoBehaviour
     private Player cellOwner;
 
     // Очки
+    [SerializeField]
     private int pointsCount;
     private int maxPointsCount;
 
@@ -47,7 +49,6 @@ public class Cell : MonoBehaviour
 
     // Выбрана ли клетка
     private bool isSelected;
-
 
     public void Start()
     {
@@ -121,7 +122,7 @@ public class Cell : MonoBehaviour
             if (pointsCount < maxPointsCount)
                 pointsCount += 1;
             else if (pointsCount > maxPointsCount) 
-                pointsCount -= 1;
+                pointsCount -= 2;
 
             onPointsChanged?.Invoke();
         }
@@ -142,7 +143,12 @@ public class Cell : MonoBehaviour
     public void CellSelect()
     {
         isSelected = true;
-        selectionCircle.GetComponent<SpriteRenderer>().enabled = true;
+        selectionCircle.GetComponent<SpriteRenderer>().enabled = true; 
+    }
+
+    public void BotCellSelect()
+    {
+        isSelected = true;
     }
 
     public void CellUnselect()
@@ -159,14 +165,76 @@ public class Cell : MonoBehaviour
             pointsCount = pointsCount / 2;
             onPointsChanged?.Invoke();
 
-            cellRecipient.GetPoints(transferPointsCount);
+            ParticlesCreator.Instance.ParticleInstantiation(this.cellOwner, this.gameObject, cellRecipient.gameObject, transferPointsCount);
         }   
     }
 
-    public void GetPoints(int pointsCountToGet)
+    public void OnTriggerEnter2D(Collider2D other)
     {
-        pointsCount += pointsCountToGet;
+        // Если в клетку прилетела частица
+        if (other.tag == "Particle" && other.GetComponent<Particle>().GetCellRecipient() == this.gameObject)
+        {
+            var particle = other.GetComponent<Particle>();
+
+            GetParticle(particle);
+            GameObject.Destroy(particle.gameObject);
+        }
+    }
+
+    public void GetParticle(Particle particle)
+    {
+        if (pointsCount >= 1)
+        {
+            GetPoint(particle);
+        }
+        else
+        {
+            if (cellState == CellStates.States.Neutral)
+                cellState = CellStates.States.Captured;
+
+            ChangeOwner(particle);
+            GetPoint(particle);
+        }
+
         onPointsChanged?.Invoke();
+    }
+
+    private void GetPoint(Particle particle)
+    {
+        // Если частицы той же команды, что и клетка, то прибавить очко, иначе отнять
+        if (particle.GetParticleOwner() == cellOwner)
+            pointsCount++;
+        else
+            pointsCount--;
+    }
+
+    public void ChangeOwner(Particle particle)
+    {
+        cellOwner = particle.GetParticleOwner();
+        ReColorCell(cellOwner.CellCenterColor);
+
+        // Если клетка была выделена игроком, но её перехватили, то сбросить выделение
+        if (isSelected)
+            CellUnselect();
+
+        // Если у клетки отрисовывался лайн рендерер во время перехвата, то убираем
+        if (gameObject.GetComponent<LineSetup>().GetSelectStatus())
+            gameObject.GetComponent<LineSetup>().UnSelectLine();
+
+        // Проверка на вин
+        WinTracker.Instance.CheckForSomebodyWin();
+    }
+
+    public void DrawTarget()
+    {
+        StartCoroutine(DrawTargetCor());
+    }
+
+    private IEnumerator DrawTargetCor()
+    {
+        selectionTarger.enabled = true;
+        yield return new WaitForSeconds(1);
+        selectionTarger.enabled = false;
     }
 
 

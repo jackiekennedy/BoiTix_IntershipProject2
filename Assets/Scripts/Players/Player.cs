@@ -6,8 +6,8 @@ public class Player : MonoBehaviour
 {
     [SerializeField] public PlayerConfig PlayerConfig;
 
-    [SerializeField] public int PlayerId;
-    [SerializeField] public Color CellCenterColor;
+    public int PlayerId { get; private set; }
+    public Color CellCenterColor { get; private set; }
 
     public void Awake()
     {
@@ -20,4 +20,7 @@ public class Player : MonoBehaviour
         var otherPlayer = other as Player;
         return PlayerId == otherPlayer.PlayerId ? true : false;
     }
+
+    public override int GetHashCode()
+        => PlayerId;
 }
